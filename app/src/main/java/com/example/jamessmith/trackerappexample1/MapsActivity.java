@@ -17,6 +17,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.CoordinatorLayout;
+import android.support.design.widget.FloatingActionButton;
 import android.support.multidex.MultiDex;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
@@ -61,6 +62,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
     @BindView(R.id.rl_favorites_bottomSheetLayout) RelativeLayout bottomSheet;
     @BindView(R.id.rv_favorites_recycler_view) RecyclerView _favoritesList;
+    @BindView(R.id.btn_favorites_list_bottom_sheet) FloatingActionButton _goBtn;
     private static final String TAG = MapsActivity.class.getSimpleName();
 
     private BottomSheetBehavior bottomSheetBehavior;
@@ -90,6 +92,13 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         if (!manager.isProviderEnabled( LocationManager.GPS_PROVIDER ) ) {
             buildAlertMessageNoGps();
         }
+
+        _goBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                accessList();
+            }
+        });
 
         Intent intent = new Intent(this, TrackerService.class);
         bindService(intent, serviceConnection, BIND_AUTO_CREATE);
@@ -225,29 +234,17 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         bottomSheetBehavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
             @Override
             public void onStateChanged(@NonNull View bottomSheet, int newState) {
-
-                CoordinatorLayout.LayoutParams params;
-                float dpRatio = getApplicationContext().getResources().getDisplayMetrics().density;
-
                 switch (newState) {
 
                     case BottomSheetBehavior.STATE_COLLAPSED:
-                        bottomSheet.setVisibility(View.INVISIBLE);
+                        Log.v(TAG, "Bottomsheet collasped");
                         break;
 
                     case BottomSheetBehavior.STATE_EXPANDED:
                         _favoritesList.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
                         _favoritesList.setItemAnimator(new DefaultItemAnimator());
-                        bottomSheet.setVisibility(View.VISIBLE);
-
+                        Log.v(TAG, "Bottomsheet expanded");
                         initAdapter();
-                        break;
-
-                    case BottomSheetBehavior.STATE_SETTLING:
-                        if ((bottomSheetBehavior.getState() <= BottomSheetBehavior.STATE_COLLAPSED) && (bottomSheetBehavior.getState() > BottomSheetBehavior.STATE_EXPANDED)){
-                            params = new CoordinatorLayout.LayoutParams(100 * Math.round(dpRatio), 50);
-                            params.setAnchorId(R.id.rl_favorites_bottomSheetLayout);
-                        }
                         break;
                 }
             }
@@ -259,6 +256,18 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         });
 
         bottomSheet.setVisibility(View.INVISIBLE);
+    }
+
+    private void accessList(){
+        bottomSheet.setVisibility(View.VISIBLE);
+        if(bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_EXPANDED){
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+        }else if(bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_COLLAPSED){
+            if(bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_HIDDEN){
+                initBottomSheet();
+            }
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        }
     }
 
     private void initAdapter(){

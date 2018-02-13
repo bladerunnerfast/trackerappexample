@@ -3,7 +3,7 @@ package com.example.jamessmith.trackerappexample1.backend.base;
 import org.jetbrains.annotations.Contract;
 
 /**
- * Created by User on 10/02/2018.
+ * Created by James Smith on 10/02/2018.
  */
 
 public class BaseLink {

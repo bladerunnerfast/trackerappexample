@@ -6,19 +6,15 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <fragment
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id="@+id/map"
-        android:name="com.google.android.gms.maps.SupportMapFragment" />
-
     <android.support.design.widget.CoordinatorLayout
         android:id="@+id/cl_favorites_bottom_sheet_container"
         android:layout_width="match_parent"
-        app:layout_anchor="@+id/map"
-        android:layout_height="500dp">
+        android:layout_gravity="bottom"
+        android:layout_height="match_parent">
 
-        <include layout="@layout/bottom_sheet" />
+        <include
+            layout="@layout/bottom_sheet"
+            tools:layout_editor_absoluteY="401dp" />
 
         <android.support.design.widget.FloatingActionButton
             android:id="@+id/btn_favorites_list_bottom_sheet"
@@ -27,5 +23,12 @@
             app:layout_anchor="@+id/rl_favorites_bottomSheetLayout"
             app:layout_anchorGravity="right|top" />
     </android.support.design.widget.CoordinatorLayout>
+    <fragment
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment" />
+
+
 
 </LinearLayout>

@@ -36,7 +36,7 @@ public class FileManager {
             OutputStream outputStream = context.openFileOutput(uri, Context.MODE_PRIVATE);
             outputStream.write(data.getBytes());
 
-            Log.v(TAG, "Written to file");
+            Log.v(TAG, "Written to file: " + data);
             outputStream.close();
 
         } catch (Exception e) {
@@ -64,7 +64,7 @@ public class FileManager {
                 favoritesModelList.add(favoritesModel);
             }
 
-            Log.v(TAG, "Read from file");
+            Log.v(TAG,"from file: " + favoritesModelList.get(0));
             fileInputStream.close();
             inputStreamReader.close();
             bufferedReader.close();

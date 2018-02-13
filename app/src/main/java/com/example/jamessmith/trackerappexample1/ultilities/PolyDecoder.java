@@ -5,7 +5,7 @@ import com.google.android.gms.maps.model.LatLng;
 import java.util.ArrayList;
 
 /**
- * Created by User on 13/02/2018.
+ * Created by James Smith on 13/02/2018.
  */
 
 public class PolyDecoder {

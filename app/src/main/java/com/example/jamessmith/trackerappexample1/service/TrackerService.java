@@ -44,7 +44,7 @@ import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 
 /**
- * Created by jamessmith on 07/02/2018.
+ * Created by james smith on 07/02/2018.
  */
 
 public class TrackerService extends Service  implements GoogleApiClient.ConnectionCallbacks,
