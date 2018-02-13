@@ -1,6 +1,5 @@
 package com.example.jamessmith.trackerappexample1;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -12,6 +11,7 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -25,7 +25,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;;
+import android.util.Log;
 import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
@@ -36,21 +36,21 @@ import com.example.jamessmith.trackerappexample1.filemanagement.FileManager;
 import com.example.jamessmith.trackerappexample1.service.TrackerService;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.LocationSource;
-import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import butterknife.BindView;
@@ -68,12 +68,8 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     private MarkerOptions markerOptions = new MarkerOptions();
     private GoogleApiClient mGoogleApiClient;
     private Marker currentLocationMarker;
-    private LocationRequest mLocationRequest;
-    private LocationManager manager;
-    private Intent intent;
     private static TrackerService trackerService;
     private GoogleMap googleMap;
-    private IntentFilter intentFilter;
     private BroadcastReceiver broadcastReceiver;
     private SupportMapFragment mapFrag;
 
@@ -85,7 +81,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
         mapFrag = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map));
 
-        manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
         if(!checkLocationPermission()) {
             Toast.makeText(this, "Features require access to function.", Toast.LENGTH_LONG).show();
@@ -95,7 +91,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             buildAlertMessageNoGps();
         }
 
-        intent = new Intent(this, TrackerService.class);
+        Intent intent = new Intent(this, TrackerService.class);
         bindService(intent, serviceConnection, BIND_AUTO_CREATE);
         startService(intent);
     }
@@ -134,22 +130,45 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
     public boolean checkLocationPermission() {
 
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {ActivityCompat.requestPermissions(this, new String[]{
-                        android.Manifest.permission.ACCESS_FINE_LOCATION}, MY_PERMISSIONS_REQUEST_LOCATION);
+        if(Build.VERSION.SDK_INT >= 23) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    ActivityCompat.requestPermissions(this, new String[]{
+                            android.Manifest.permission.ACCESS_FINE_LOCATION}, MY_PERMISSIONS_REQUEST_LOCATION);
+                } else {
+                    ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                            MY_PERMISSIONS_REQUEST_LOCATION);
+                }
+                return false;
             } else {
-                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_LOCATION);
+                return true;
             }
-            return false;
         } else {
             return true;
         }
     }
 
+    private boolean isStoragePermissionGranted() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                Log.v(TAG,"Permission has been granted");
+                return true;
+            } else {
+                Log.v(TAG,"Permission has been revoked");
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+                return false;
+            }
+        }
+        else { //Automatically granted on sdk<23 upon installation
+            Log.v(TAG,"Permission has been granted");
+            return true;
+        }
+    }
+
+
     @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults) {
 
         switch (requestCode) {
             case MY_PERMISSIONS_REQUEST_LOCATION: {
@@ -181,7 +200,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     @Override
     public void onConnected(@Nullable Bundle bundle) {
 
-        mLocationRequest = new LocationRequest();
+        LocationRequest mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(1000);
         mLocationRequest.setFastestInterval(1000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
@@ -205,7 +224,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
         bottomSheetBehavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
             @Override
-            public void onStateChanged(View bottomSheet, int newState) {
+            public void onStateChanged(@NonNull View bottomSheet, int newState) {
 
                 CoordinatorLayout.LayoutParams params;
                 float dpRatio = getApplicationContext().getResources().getDisplayMetrics().density;
@@ -234,7 +253,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             }
 
             @Override
-            public void onSlide(View bottomSheet, float slideOffset) {
+            public void onSlide(@NonNull View bottomSheet, float slideOffset) {
                 bottomSheet.setAlpha(slideOffset);
             }
         });
@@ -260,7 +279,14 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             trackerService = binder.getService();
             Log.v(TAG, "Connected to Service");
 
-            initBroadcastReciever();
+            if(isStoragePermissionGranted()){
+                trackerService.setTrackingEnabled(true);
+            } else {
+                Toast.makeText(getApplicationContext(), "Require access to read/write cached data.", Toast.LENGTH_SHORT).show();
+                trackerService.setTrackingEnabled(false);
+            }
+
+            initBroadcastReceiver();
             setupMap();
             initBottomSheet();
         }
@@ -287,11 +313,23 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                         @Override
                         public void onMapClick(final LatLng latLng) {
 
-                            LocationManager locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
-                            Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                            trackerService.setRoute(location.getLatitude(), location.getLongitude(),
-                                    latLng.latitude, latLng.longitude);
-
+                            FusedLocationProviderClient mFusedLocationClient = LocationServices.getFusedLocationProviderClient(getApplicationContext());
+                            mFusedLocationClient.getLastLocation()
+                                    .addOnSuccessListener(new OnSuccessListener<Location>() {
+                                        @Override
+                                        public void onSuccess(Location location) {
+                                            // GPS location can be null if GPS is switched off
+                                            if (location != null) {
+                                                trackerService.setRoute(location.getLatitude(), location.getLongitude(), latLng.latitude, latLng.longitude);
+                                            }
+                                        }
+                                    })
+                                    .addOnFailureListener(new OnFailureListener() {
+                                        @Override
+                                        public void onFailure(@NonNull Exception e) {
+                                            Log.d(TAG, e.getLocalizedMessage());
+                                        }
+                                    });
                         }
                     });
 
@@ -304,9 +342,9 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
       mapFrag.getMapAsync(onMapReadyCallback);
     }
 
-    private void initBroadcastReciever() {
+    private void initBroadcastReceiver() {
 
-        intentFilter = new IntentFilter("updateMapActivity");
+        IntentFilter intentFilter = new IntentFilter("updateMapActivity");
 
         broadcastReceiver = new BroadcastReceiver() {
             @Override

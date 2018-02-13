@@ -1,6 +1,7 @@
 package com.example.jamessmith.trackerappexample1.service;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.location.Address;
@@ -22,6 +23,7 @@ import com.example.jamessmith.trackerappexample1.backend.model.Step;
 import com.example.jamessmith.trackerappexample1.backend.observable.CustomObservable;
 import com.example.jamessmith.trackerappexample1.favorites.FavoritesModel;
 import com.example.jamessmith.trackerappexample1.filemanagement.FileManager;
+import com.example.jamessmith.trackerappexample1.ultilities.PolyDecoder;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -51,7 +53,6 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
     private final IBinder binder = new LocalBinder();
     private MarkerOptions markerOptions = new MarkerOptions();
     private static GoogleMap googleMap;
-    private Geocoder geocoder;
     private static GoogleDataModel mModel;
     private boolean isTrackingEnabled = true;
     private final Intent intent = new Intent("updateMapActivity");
@@ -91,7 +92,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
 
     private double getLoc(String address, int sel){
 
-        geocoder = new Geocoder(this);
+        Geocoder geocoder = new Geocoder(this);
 
         try {
             List<Address> addresses = geocoder.getFromLocationName(address, 1);
@@ -104,10 +105,10 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
                 return addresses.get(0).getLongitude();
             }
         } catch (IOException e) {
-            e.printStackTrace();
-            return -99999999.999999999;
+          Log.v(TAG, e.getMessage());
+            return 0;
         }
-        return -99999999.999999999;
+        return 0;
     }
 
     @Override
@@ -187,10 +188,11 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
 
         if((mModel != null) && (mModel.getRoutes().size() > 0)) {
             if(googleMap != null) {
+                PolyDecoder polyDecoder = new PolyDecoder();
                 Step step;
                 String polyline;
-                ArrayList<LatLng> routelist = new ArrayList<>();
-                ArrayList<LatLng> decodelist;
+                ArrayList<LatLng> routeList = new ArrayList<>();
+                ArrayList<LatLng> decodeList;
                 PolylineOptions polylineOptions = new PolylineOptions().width(10).color(Color.RED);
 
                 for (int leg = 0; leg < legs.size(); leg ++) {
@@ -199,16 +201,16 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
 
                     for (int i = 0; i < steps.size(); i++) {
                         step = steps.get(i);
-                        routelist.add(new LatLng(step.getStartLocation().getLat(), step.getStartLocation().getLng()));
+                        routeList.add(new LatLng(step.getStartLocation().getLat(), step.getStartLocation().getLng()));
                         polyline = step.getPolyline().getPoints();
-                        decodelist = decodePoly(polyline);
-                        routelist.addAll(decodelist);
-                        routelist.add(new LatLng(step.getEndLocation().getLat(), step.getEndLocation().getLng()));
+                        decodeList = polyDecoder.decodePoly(polyline);
+                        routeList.addAll(decodeList);
+                        routeList.add(new LatLng(step.getEndLocation().getLat(), step.getEndLocation().getLng()));
                     }
 
-                    if (routelist.size() > 0) {
-                        for (int i = 0; i < routelist.size(); i++) {
-                            polylineOptions.add(routelist.get(i));
+                    if (routeList.size() > 0) {
+                        for (int i = 0; i < routeList.size(); i++) {
+                            polylineOptions.add(routeList.get(i));
                         }
 
                         return polylineOptions;
@@ -220,39 +222,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
         return null;
     }
 
-    public static ArrayList<LatLng> decodePoly(String encoded) {
-        ArrayList<LatLng> poly = new ArrayList<>();
-        int index = 0, len = encoded.length();
-        int lat = 0, lng = 0;
 
-        while (index < len) {
-            int b, shift = 0, result = 0;
-
-            do {
-                b = encoded.charAt(index ++) - 63;
-                result |= (b & 0x1f) << shift;
-                shift += 5;
-            } while (b >= 0x20);
-
-            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-            lat += dlat;
-            shift = 0;
-            result = 0;
-
-            do {
-                b = encoded.charAt(index ++) - 63;
-                result |= (b & 0x1f) << shift;
-                shift += 5;
-            } while (b >= 0x20);
-
-            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-            lng += dlng;
-
-            LatLng position = new LatLng((double) lat / 1E5, (double) lng / 1E5);
-            poly.add(position);
-        }
-        return poly;
-    }
 
     private void downloadData(String apiKey, final double oLat, final double oLon, final double dLat, final double dLon, String sensor, String mode, String traffic) {
 
@@ -299,7 +269,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
     }
 
     public void setGoogleMap(GoogleMap googleMap) {
-        this.googleMap = googleMap;
+        TrackerService.googleMap = googleMap;
     }
 
     public MarkerOptions getMarkerOptions() {
@@ -309,32 +279,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
     private void storeTrackedData(){
 
         if(isTrackingEnabled) {
-
-            new AsyncTask<Void, Void, Void>() {
-
-                FavoritesModel favoritesModel;
-                FileManager fileManager;
-                @Override
-                protected void onPreExecute() {
-                    super.onPreExecute();
-                    fileManager = new FileManager(getApplicationContext());
-                }
-
-                @Override
-                protected Void doInBackground(Void... voids) {
-
-                    for(int i = 0; i < legs.size(); i ++){
-                        favoritesModel = new FavoritesModel(
-                                legs.get(i).getStartAddress(),
-                                legs.get(i).getEndAddress(),
-                                legs.get(i).getDuration().getText(),
-                                legs.get(i).getDistance().getText());
-                        fileManager.setFavoritesList(favoritesModel);
-                    }
-
-                    return null;
-                }
-            }.execute();
+            new StoreData(getApplicationContext(), legs).execute();
         }
     }
 
@@ -345,9 +290,51 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
         return duration;
     }
 
+    public boolean isTrackingEnabled() {
+        return isTrackingEnabled;
+    }
+
+    public void setTrackingEnabled(boolean trackingEnabled) {
+        isTrackingEnabled = trackingEnabled;
+    }
+
     public class LocalBinder extends Binder {
         public TrackerService getService() {
             return TrackerService.this;
+        }
+    }
+
+    public static class StoreData extends AsyncTask<Void, Void, Void> {
+
+        private Context context;
+        private List<Leg> legs;
+        private FavoritesModel favoritesModel;
+        private FileManager fileManager;
+
+        public StoreData(Context context, List<Leg> legs) {
+            this.context = context;
+            this.legs = legs;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            fileManager = new FileManager(context);
+        }
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+
+            for (int i = 0; i < legs.size(); i++) {
+                favoritesModel = new FavoritesModel(
+                        legs.get(i).getStartAddress(),
+                        legs.get(i).getEndAddress(),
+                        legs.get(i).getDuration().getText(),
+                        legs.get(i).getDistance().getText());
+                fileManager.setFavoritesList(favoritesModel);
+            }
+
+            return null;
         }
     }
 }
