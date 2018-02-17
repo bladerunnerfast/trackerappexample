@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item android:title="Map Style">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/nav_normal"
+                    android:title="Normal"/>
+                <item
+                    android:id="@+id/nav_satellite"
+                    android:title="Satellite" />
+                <item
+                    android:id="@+id/nav_terrain"
+                    android:title="Terrain" />
+
+                <item
+                    android:id="@+id/nav_hybrid"
+                    android:title="Hybrid" />
+            </group>
+        </menu>
+    </item>
+
+    <item android:title="Navigation Mode">
+        <menu>
+            <item
+                android:id="@+id/nav_cycle"
+                android:icon="@drawable/ic_directions_bike_black_24dp"
+                android:title="Cycle" />
+
+            <item
+                android:id="@+id/nav_walking"
+                android:icon="@drawable/ic_directions_walk_black_24dp"
+                android:title="Walking" />
+
+            <item
+                android:id="@+id/nav_driving"
+                android:icon="@drawable/ic_directions_car_black_24dp"
+                android:title="Driving" />
+        </menu>
+    </item>
+
+    <item android:title="Settings">
+        <menu>
+            <item
+                android:id="@+id/nav_tracking"
+                app:actionLayout="@layout/tracker_switch_layout"
+                android:title="Tracking" />
+        </menu>
+    </item>
+</menu>

@@ -55,14 +55,18 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
     private static GoogleMap googleMap;
     private static GoogleDataModel mModel;
     private boolean isTrackingEnabled = true;
-    private final Intent intent = new Intent("updateMapActivity");
+    private final Intent intent = new Intent("updateMapFragment");
     private List<Leg> legs;
-    private static String googleApiKey = "AIzaSyA6UeXLie3DBLBNRU0YT4HCOZmrou8-Os8";
+    private static final String googleApiKey = "AIzaSyA6UeXLie3DBLBNRU0YT4HCOZmrou8-Os8";
+    private static final String sensor = "enabled", mode = "walking", traffic = "enabled";
+    private boolean isServiceRunning = false;
 
     private static final String TAG = TrackerService.class.getSimpleName();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
+        isServiceRunning = true;
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -74,7 +78,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
 
 
     public void setRoute(double oLatitude, double oLongitude, double dLatitude, double dLongitude) {
-        downloadData(googleApiKey, oLatitude, oLongitude, dLatitude, dLongitude, "enabled", "walking", "enabled");
+        downloadData(googleApiKey, oLatitude, oLongitude, dLatitude, dLongitude);
     }
 
     public void setRoute(String origin, String destination){
@@ -86,7 +90,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
             double dLat = getLoc(destination, 1);
             double dLon = getLoc(destination, 2);
 
-            downloadData(googleApiKey, oLat, oLon, dLat, dLon, "enabled","walking","enabled");
+            downloadData(googleApiKey, oLat, oLon, dLat, dLon);
         }
     }
 
@@ -104,6 +108,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
             else if(sel == 2) {
                 return addresses.get(0).getLongitude();
             }
+
         } catch (IOException e) {
           Log.v(TAG, e.getMessage());
             return 0;
@@ -188,12 +193,11 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
 
         if((mModel != null) && (mModel.getRoutes().size() > 0)) {
             if(googleMap != null) {
-                PolyDecoder polyDecoder = new PolyDecoder();
                 Step step;
                 String polyline;
                 ArrayList<LatLng> routeList = new ArrayList<>();
                 ArrayList<LatLng> decodeList;
-                PolylineOptions polylineOptions = new PolylineOptions().width(10).color(Color.RED);
+                PolylineOptions polylineOptions = new PolylineOptions().width(5).color(Color.RED);
 
                 for (int leg = 0; leg < legs.size(); leg ++) {
 
@@ -203,7 +207,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
                         step = steps.get(i);
                         routeList.add(new LatLng(step.getStartLocation().getLat(), step.getStartLocation().getLng()));
                         polyline = step.getPolyline().getPoints();
-                        decodeList = polyDecoder.decodePoly(polyline);
+                        decodeList = PolyDecoder.decodePoly(polyline);
                         routeList.addAll(decodeList);
                         routeList.add(new LatLng(step.getEndLocation().getLat(), step.getEndLocation().getLng()));
                     }
@@ -222,9 +226,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
         return null;
     }
 
-
-
-    private void downloadData(String apiKey, final double oLat, final double oLon, final double dLat, final double dLon, String sensor, String mode, String traffic) {
+    private void downloadData(String apiKey, final double oLat, final double oLon, final double dLat, final double dLon) {
 
         final ManageConnection restfulClient = new ManageConnection();
         CustomObservable api = restfulClient.getRest().build().create(CustomObservable.class);
@@ -290,8 +292,8 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
         return duration;
     }
 
-    public boolean isTrackingEnabled() {
-        return isTrackingEnabled;
+    public boolean isServiceRunning() {
+        return isServiceRunning;
     }
 
     public void setTrackingEnabled(boolean trackingEnabled) {
@@ -303,7 +305,6 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
             return TrackerService.this;
         }
     }
-
     public static class StoreData extends AsyncTask<Void, Void, Void> {
 
         private Context context;

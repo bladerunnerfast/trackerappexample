@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name">TrackerAppExample1</string>
     <string name="title_activity_maps">Map</string>
+
+    <string name="navigation_drawer_open">Opened</string>
+    <string name="navigation_drawer_close">Closed</string>
+    <string name="title_activity_main">MainActivity</string>
+
+    <string name="action_settings">Settings</string>
 </resources>

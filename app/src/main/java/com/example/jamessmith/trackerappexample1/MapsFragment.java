@@ -11,24 +11,16 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
-import android.os.Build;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.design.widget.BottomSheetBehavior;
-import android.support.design.widget.CoordinatorLayout;
-import android.support.design.widget.FloatingActionButton;
-import android.support.multidex.MultiDex;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.DefaultItemAnimator;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.RelativeLayout;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.example.jamessmith.trackerappexample1.favorites.FavoritesAdapter;
@@ -43,8 +35,9 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapView;
+import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.OnMapReadyCallback;
-import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -57,15 +50,13 @@ import java.util.List;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
-public class MapsActivity extends FragmentActivity implements GoogleApiClient.ConnectionCallbacks,
+public class MapsFragment extends Fragment implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, LocationListener{
 
-    @BindView(R.id.rl_favorites_bottomSheetLayout) RelativeLayout bottomSheet;
-    @BindView(R.id.rv_favorites_recycler_view) RecyclerView _favoritesList;
-    @BindView(R.id.btn_favorites_list_bottom_sheet) FloatingActionButton _goBtn;
-    private static final String TAG = MapsActivity.class.getSimpleName();
+    @BindView(R.id.map) MapView mapFrag;
 
-    private BottomSheetBehavior bottomSheetBehavior;
+    private static final String TAG = MapsFragment.class.getSimpleName();
+    private static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
 
     private MarkerOptions markerOptions = new MarkerOptions();
     private GoogleApiClient mGoogleApiClient;
@@ -73,42 +64,34 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     private static TrackerService trackerService;
     private GoogleMap googleMap;
     private BroadcastReceiver broadcastReceiver;
-    private SupportMapFragment mapFrag;
+    private Intent serviceIntent;
 
+    @Nullable
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_maps);
-        ButterKnife.bind(this);
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.activity_maps, container, false);
+        ButterKnife.bind(this, view);
 
-        mapFrag = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map));
+        mapFrag.onCreate(savedInstanceState);
+        mapFrag.onResume();
 
-        LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-
-        if(!checkLocationPermission()) {
-            Toast.makeText(this, "Features require access to function.", Toast.LENGTH_LONG).show();
+        try {
+            MapsInitializer.initialize(getContext());
+        } catch (Exception e) {
+            Log.v(TAG, e.getMessage());
         }
 
-        if (!manager.isProviderEnabled( LocationManager.GPS_PROVIDER ) ) {
+        LocationManager manager = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+
+        if (!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
             buildAlertMessageNoGps();
         }
 
-        _goBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                accessList();
-            }
-        });
+        serviceIntent = new Intent(getContext(), TrackerService.class);
+        getContext().bindService(serviceIntent, serviceConnection, getContext().BIND_AUTO_CREATE);
+        getContext().startService(serviceIntent);
 
-        Intent intent = new Intent(this, TrackerService.class);
-        bindService(intent, serviceConnection, BIND_AUTO_CREATE);
-        startService(intent);
-    }
-
-    @Override
-    protected void attachBaseContext(Context base) {
-        super.attachBaseContext(base);
-        MultiDex.install(this);
+        return view;
     }
 
     @Override
@@ -116,7 +99,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
     private void buildAlertMessageNoGps() {
 
-        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
         builder.setMessage("GPS does not appear to be enabled")
                 .setCancelable(false)
                 .setPositiveButton("Enable", new DialogInterface.OnClickListener() {
@@ -135,54 +118,13 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         alert.show();
     }
 
-    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
-
-    public boolean checkLocationPermission() {
-
-        if(Build.VERSION.SDK_INT >= 23) {
-            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
-                    != PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
-                    ActivityCompat.requestPermissions(this, new String[]{
-                            android.Manifest.permission.ACCESS_FINE_LOCATION}, MY_PERMISSIONS_REQUEST_LOCATION);
-                } else {
-                    ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
-                            MY_PERMISSIONS_REQUEST_LOCATION);
-                }
-                return false;
-            } else {
-                return true;
-            }
-        } else {
-            return true;
-        }
-    }
-
-    private boolean isStoragePermissionGranted() {
-        if (Build.VERSION.SDK_INT >= 23) {
-            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                Log.v(TAG,"Permission has been granted");
-                return true;
-            } else {
-                Log.v(TAG,"Permission has been revoked");
-                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-                return false;
-            }
-        }
-        else { //Automatically granted on sdk<23 upon installation
-            Log.v(TAG,"Permission has been granted");
-            return true;
-        }
-    }
-
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults) {
 
         switch (requestCode) {
             case MY_PERMISSIONS_REQUEST_LOCATION: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                         if (mGoogleApiClient == null) {
                             buildGoogleApiClient();
                         }
@@ -190,7 +132,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
                 } else {
 
-                    Toast.makeText(this, "permission denied", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getContext(), "permission denied", Toast.LENGTH_LONG).show();
                 }
             }
         }
@@ -198,7 +140,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
     protected synchronized void buildGoogleApiClient() {
 
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
+        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
@@ -213,7 +155,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         mLocationRequest.setInterval(1000);
         mLocationRequest.setFastestInterval(1000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ContextCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
         }
@@ -227,59 +169,6 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {}
 
-    private void initBottomSheet(){
-
-        bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-
-        bottomSheetBehavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
-            @Override
-            public void onStateChanged(@NonNull View bottomSheet, int newState) {
-                switch (newState) {
-
-                    case BottomSheetBehavior.STATE_COLLAPSED:
-                        Log.v(TAG, "Bottomsheet collasped");
-                        break;
-
-                    case BottomSheetBehavior.STATE_EXPANDED:
-                        _favoritesList.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
-                        _favoritesList.setItemAnimator(new DefaultItemAnimator());
-                        Log.v(TAG, "Bottomsheet expanded");
-                        initAdapter();
-                        break;
-                }
-            }
-
-            @Override
-            public void onSlide(@NonNull View bottomSheet, float slideOffset) {
-                bottomSheet.setAlpha(slideOffset);
-            }
-        });
-
-        bottomSheet.setVisibility(View.INVISIBLE);
-    }
-
-    private void accessList(){
-        bottomSheet.setVisibility(View.VISIBLE);
-        if(bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_EXPANDED){
-            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
-        }else if(bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_COLLAPSED){
-            if(bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_HIDDEN){
-                initBottomSheet();
-            }
-            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-        }
-    }
-
-    private void initAdapter(){
-
-        FileManager fileManager = new FileManager(getApplicationContext());
-        List<FavoritesModel> favoritesList = fileManager.getFavoritesList();
-
-        if((favoritesList != null) && (favoritesList.size() > 0)) {
-            FavoritesAdapter favoritesAdapter = new FavoritesAdapter(this, favoritesList);
-            _favoritesList.setAdapter(favoritesAdapter);
-        }
-    }
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -288,16 +177,8 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             trackerService = binder.getService();
             Log.v(TAG, "Connected to Service");
 
-            if(isStoragePermissionGranted()){
-                trackerService.setTrackingEnabled(true);
-            } else {
-                Toast.makeText(getApplicationContext(), "Require access to read/write cached data.", Toast.LENGTH_SHORT).show();
-                trackerService.setTrackingEnabled(false);
-            }
-
             initBroadcastReceiver();
             setupMap();
-            initBottomSheet();
         }
 
         @Override
@@ -322,14 +203,14 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                         @Override
                         public void onMapClick(final LatLng latLng) {
 
-                            FusedLocationProviderClient mFusedLocationClient = LocationServices.getFusedLocationProviderClient(getApplicationContext());
+                            FusedLocationProviderClient mFusedLocationClient = LocationServices.getFusedLocationProviderClient(getContext());
                             mFusedLocationClient.getLastLocation()
                                     .addOnSuccessListener(new OnSuccessListener<Location>() {
                                         @Override
-                                        public void onSuccess(Location location) {
+                                        public void onSuccess(Location currentLocation) {
                                             // GPS location can be null if GPS is switched off
-                                            if (location != null) {
-                                                trackerService.setRoute(location.getLatitude(), location.getLongitude(), latLng.latitude, latLng.longitude);
+                                            if (currentLocation != null) {
+                                                trackerService.setRoute(currentLocation.getLatitude(), currentLocation.getLongitude(), latLng.latitude, latLng.longitude);
                                             }
                                         }
                                     })
@@ -353,7 +234,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
     private void initBroadcastReceiver() {
 
-        IntentFilter intentFilter = new IntentFilter("updateMapActivity");
+        IntentFilter intentFilter = new IntentFilter("updateMapFragment");
 
         broadcastReceiver = new BroadcastReceiver() {
             @Override
@@ -362,7 +243,6 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 if(intent != null) {
                     if("loadRoutes".equals(intent.getStringExtra("instruction"))) {
                         if("successful".equals(intent.getStringExtra("status"))) {
-                            Log.v(TAG, "status");
                             if(googleMap != null) {
                                 if(trackerService.getPolylines() != null) {
                                     googleMap.addPolyline(trackerService.getPolylines());
@@ -385,8 +265,8 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                             double lastLat = intent.getDoubleExtra("lastLat", 0);
                             double latLon = intent.getDoubleExtra("lastLon", 0);
 
-                            Toast.makeText(getApplicationContext(), "lat: " + lastLat, Toast.LENGTH_SHORT).show();
-                            //Place current location marker
+                            Toast.makeText(getContext(), "lat: " + lastLat, Toast.LENGTH_SHORT).show();
+                            //Place current location markers.
                             LatLng latLng = new LatLng(lastLat, latLon);
                             markerOptions.position(latLng);
                             markerOptions.title("Your here");
@@ -402,19 +282,54 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                         String destination = intent.getStringExtra("destination");
                         trackerService.setRoute(origin, destination);
                     }
+
+                    else if("selectedOptions".equals(intent.getStringExtra("instruction"))) {
+                        int mapMode = intent.getIntExtra("mapMode", -1);
+
+                        if((mapMode > -1) && (mapMode <= 3 )) {
+                            setMapType(mapMode);
+                        }
+                    }
                 }
             }
         };
 
-        registerReceiver(broadcastReceiver, intentFilter);
+        getContext().registerReceiver(broadcastReceiver, intentFilter);
+    }
+
+    private void setMapType(int index) {
+
+        switch (index) {
+            case 0:
+                googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                break;
+            case 1:
+                googleMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
+                break;
+            case 2:
+                googleMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+                break;
+            case 3:
+                googleMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+                break;
+            default:
+                googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                break;
+        }
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         super.onDestroy();
 
         try {
-            unregisterReceiver(broadcastReceiver);
+
+            getContext().unregisterReceiver(broadcastReceiver);
+
+            if((trackerService != null) && (trackerService.isServiceRunning())) {
+                trackerService.stopService(serviceIntent);
+            }
+
         }catch (Exception e){/* Left black*/ }
     }
 }

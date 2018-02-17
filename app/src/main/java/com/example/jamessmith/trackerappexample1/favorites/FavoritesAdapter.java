@@ -25,7 +25,7 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Cust
     private Context context;
     private List<FavoritesModel> favoritesModel;
 
-    public FavoritesAdapter(Context context, List<FavoritesModel> favoritesModel){
+    public FavoritesAdapter(Context context, List<FavoritesModel> favoritesModel) {
         this.context = context;
         this.favoritesModel = favoritesModel;
     }
@@ -39,10 +39,10 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Cust
     @Override
     public void onBindViewHolder(CustomViewHolder holder, int position) {
 
-        holder._origin.setText(favoritesModel.get(position).getOrigin());
-        holder._destination.setText(favoritesModel.get(position).getDestination());
-        holder._distance.setText(favoritesModel.get(position).getDistance());
-        holder._duration.setText(favoritesModel.get(position).getDuration());
+        holder._origin.setText("Origin:" + favoritesModel.get(position).getOrigin());
+        holder._destination.setText("Destination: " + favoritesModel.get(position).getDestination());
+        holder._distance.setText("Distance: " + favoritesModel.get(position).getDistance());
+        holder._duration.setText("Duration: " + favoritesModel.get(position).getDuration());
     }
 
     @Override
@@ -50,7 +50,7 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Cust
         return favoritesModel == null ? 0 : favoritesModel.size();
     }
 
-    public static class CustomViewHolder extends RecyclerView.ViewHolder{
+    public static class CustomViewHolder extends RecyclerView.ViewHolder {
 
         @BindView(R.id.tv_origin) TextView _origin;
         @BindView(R.id.tv_destination) TextView _destination;
@@ -60,11 +60,11 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Cust
 
         private Intent intent;
 
-        public CustomViewHolder(View view, final Context context){
+        public CustomViewHolder(View view, final Context context) {
             super(view);
             ButterKnife.bind(this, view);
 
-            intent = new Intent("updateMapActivity");
+            intent = new Intent("updateMapFragment");
 
             _goBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
