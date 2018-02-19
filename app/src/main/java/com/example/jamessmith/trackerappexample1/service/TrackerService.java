@@ -1,32 +1,32 @@
 package com.example.jamessmith.trackerappexample1.service;
 
+import android.Manifest;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Binder;
-import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.example.jamessmith.trackerappexample1.backend.connectionmanagement.ManageConnection;
 import com.example.jamessmith.trackerappexample1.backend.model.GoogleDataModel;
 import com.example.jamessmith.trackerappexample1.backend.model.Leg;
 import com.example.jamessmith.trackerappexample1.backend.model.Step;
 import com.example.jamessmith.trackerappexample1.backend.observable.CustomObservable;
-import com.example.jamessmith.trackerappexample1.favorites.FavoritesModel;
-import com.example.jamessmith.trackerappexample1.filemanagement.FileManager;
+import com.example.jamessmith.trackerappexample1.favorites.storage.FavoritesCache;
+import com.example.jamessmith.trackerappexample1.favorites.storage.FavoritesCacheModel;
 import com.example.jamessmith.trackerappexample1.ultilities.PolyDecoder;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -34,6 +34,8 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,9 +49,9 @@ import rx.schedulers.Schedulers;
  * Created by james smith on 07/02/2018.
  */
 
-public class TrackerService extends Service  implements GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener, LocationListener {
+public class TrackerService extends Service {
 
+    private boolean isServiceRunning = false;
     private final IBinder binder = new LocalBinder();
     private MarkerOptions markerOptions = new MarkerOptions();
     private static GoogleMap googleMap;
@@ -57,9 +59,12 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
     private boolean isTrackingEnabled = true;
     private final Intent intent = new Intent("updateMapFragment");
     private List<Leg> legs;
+    private List<LatLng> usersPolyLine;
+    private Handler handler = new Handler();
     private static final String googleApiKey = "AIzaSyA6UeXLie3DBLBNRU0YT4HCOZmrou8-Os8";
     private static final String sensor = "enabled", mode = "walking", traffic = "enabled";
-    private boolean isServiceRunning = false;
+
+    private FavoritesCache favoritesCache;
 
     private static final String TAG = TrackerService.class.getSimpleName();
 
@@ -67,6 +72,10 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
     public int onStartCommand(Intent intent, int flags, int startId) {
 
         isServiceRunning = true;
+        favoritesCache = new FavoritesCache(getApplicationContext());
+        usersPolyLine = new ArrayList<>();
+
+        runnable.run();
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -76,14 +85,13 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
         return binder;
     }
 
-
     public void setRoute(double oLatitude, double oLongitude, double dLatitude, double dLongitude) {
         downloadData(googleApiKey, oLatitude, oLongitude, dLatitude, dLongitude);
     }
 
-    public void setRoute(String origin, String destination){
+    public void setRoute(String origin, String destination) {
 
-        if((origin != null) && (origin.length() > 0) && (destination != null) && (destination.length() > 0)) {
+        if ((origin != null) && (origin.length() > 0) && (destination != null) && (destination.length() > 0)) {
 
             double oLat = getLoc(origin, 1);
             double oLon = getLoc(origin, 2);
@@ -94,50 +102,79 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
         }
     }
 
-    private double getLoc(String address, int sel){
+    private double getLoc(String address, int sel) {
 
         Geocoder geocoder = new Geocoder(this);
 
         try {
             List<Address> addresses = geocoder.getFromLocationName(address, 1);
 
-            if(sel == 1) {
-                return addresses.get(0).getLatitude();
-            }
-
-            else if(sel == 2) {
-                return addresses.get(0).getLongitude();
+            if ((addresses != null) && (addresses.size() > 0)) {
+                if (sel == 1) {
+                    return addresses.get(0).getLatitude();
+                } else if (sel == 2) {
+                    return addresses.get(0).getLongitude();
+                }
             }
 
         } catch (IOException e) {
-          Log.v(TAG, e.getMessage());
+            Log.v(TAG, e.getMessage());
             return 0;
         }
         return 0;
     }
 
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
+    Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+            initLocationUpdates();
+        }
+    };
 
+    private void initLocationUpdates() {
+        FusedLocationProviderClient mFusedLocationClient = LocationServices.getFusedLocationProviderClient(getApplicationContext());
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        mFusedLocationClient.getLastLocation().addOnSuccessListener(new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if (location != null) {
+                    usersPolyLine.add(new LatLng(location.getLatitude(), location.getLongitude()));
+                    intent.putExtra("instruction", "setPolyLines");
+                    sendBroadcast(intent);
+                }
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.d(TAG, e.getLocalizedMessage());
+                    }
+                });
+
+        if(isTrackingEnabled) {
+            handler.postDelayed(runnable, 500);
+        }
     }
 
-    @Override
-    public void onConnectionSuspended(int i) {
+    @Nullable
+    public PolylineOptions getUsersPosition() {
 
-    }
+        PolylineOptions polylineOptions = new PolylineOptions().width(5).color(Color.BLUE);
 
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        if((usersPolyLine != null) && (usersPolyLine.size() > 0)) {
+            for(int i = 0; i < usersPolyLine.size(); i ++) {
+                polylineOptions.add(usersPolyLine.get(i));
+            }
+        }
 
-    }
+        else {
+            return null;
+        }
 
-    @Override
-    public void onLocationChanged(Location location) {
-
-        intent.putExtra("instruction", "updateCurrentLocation");
-        intent.putExtra("lastLat", location.getLatitude());
-        intent.putExtra("latLon", location.getLongitude());
-        sendBroadcast(intent);
+        return polylineOptions;
     }
 
     private void drawMarkers(double sLat, double sLon, double eLat, double eLon) {
@@ -189,7 +226,7 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
     }
 
     @Nullable
-    public PolylineOptions getPolylines() {
+    public PolylineOptions getPolyLines() {
 
         if((mModel != null) && (mModel.getRoutes().size() > 0)) {
             if(googleMap != null) {
@@ -240,11 +277,19 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
                 .subscribe(new Observer<GoogleDataModel>() {
 
                     @Override
+                    public void onNext(GoogleDataModel model) {
+                        mModel = model;
+                    }
+
+                    @Override
                     public void onCompleted() {
                         legs = mModel.getRoutes().get(0).getLegs();
 
                         drawMarkers(oLat, oLon, dLat, dLon);
-                        storeTrackedData();
+
+                        if(favoritesCache != null) {
+                            new StoreData(legs, favoritesCache).execute();
+                        }
 
                         intent.putExtra("instruction", "loadRoutes");
                         intent.putExtra("status", "successful");
@@ -257,16 +302,11 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
                     public void onError(Throwable e) {
                         if (e != null) {
                             Log.v(TAG, e.toString());
-                            Toast.makeText(getApplicationContext(), "Failed to download data", Toast.LENGTH_SHORT).show();
                             restfulClient.getCompositeSubscription().unsubscribe();
                         }
                     }
-
-                    @Override
-                    public void onNext(GoogleDataModel model) {
-                        mModel = model;
-                    }
-                })
+                }
+                )
         );
     }
 
@@ -276,13 +316,6 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
 
     public MarkerOptions getMarkerOptions() {
         return markerOptions;
-    }
-
-    private void storeTrackedData(){
-
-        if(isTrackingEnabled) {
-            new StoreData(getApplicationContext(), legs).execute();
-        }
     }
 
     public String getDuration() {
@@ -305,34 +338,40 @@ public class TrackerService extends Service  implements GoogleApiClient.Connecti
             return TrackerService.this;
         }
     }
+
     public static class StoreData extends AsyncTask<Void, Void, Void> {
 
-        private Context context;
         private List<Leg> legs;
-        private FavoritesModel favoritesModel;
-        private FileManager fileManager;
+        private FavoritesCacheModel favoritesCacheModel;
+        private FavoritesCache favoritesCache;
 
-        public StoreData(Context context, List<Leg> legs) {
-            this.context = context;
+        public StoreData(List<Leg> legs, FavoritesCache favoritesCacheDB) {
             this.legs = legs;
+            this.favoritesCache = favoritesCacheDB;
         }
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            fileManager = new FileManager(context);
         }
 
         @Override
         protected Void doInBackground(Void... voids) {
 
             for (int i = 0; i < legs.size(); i++) {
-                favoritesModel = new FavoritesModel(
+                favoritesCacheModel = new FavoritesCacheModel(
                         legs.get(i).getStartAddress(),
                         legs.get(i).getEndAddress(),
+                        legs.get(i).getDistance().getText(),
                         legs.get(i).getDuration().getText(),
-                        legs.get(i).getDistance().getText());
-                fileManager.setFavoritesList(favoritesModel);
+                        legs.get(i).getStartLocation().getLat(),
+                        legs.get(i).getStartLocation().getLng(),
+                        legs.get(i).getEndLocation().getLat(),
+                        legs.get(i).getEndLocation().getLng());
+
+                if(!favoritesCache.setFavorites(favoritesCacheModel)) {
+                    Log.v(TAG, "Failed to add entry.");
+                }
             }
 
             return null;

@@ -3,6 +3,7 @@ package com.example.jamessmith.trackerappexample1;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.design.widget.BottomSheetBehavior;
@@ -31,6 +32,8 @@ import android.widget.Toast;
 
 import com.example.jamessmith.trackerappexample1.favorites.FavoritesAdapter;
 import com.example.jamessmith.trackerappexample1.favorites.FavoritesModel;
+import com.example.jamessmith.trackerappexample1.favorites.storage.FavoritesCache;
+import com.example.jamessmith.trackerappexample1.favorites.storage.FavoritesCacheModel;
 import com.example.jamessmith.trackerappexample1.filemanagement.FileManager;
 
 import java.util.List;
@@ -70,12 +73,11 @@ public class MainActivity extends AppCompatActivity
         if(_recyclerView != null){
             _recyclerView.setLayoutManager(new LinearLayoutManager(this));
             _recyclerView.setItemAnimator(new DefaultItemAnimator());
-            initAdapter();
+            PopulateFavoriteList populateFavoriteList = new PopulateFavoriteList(this);
+            populateFavoriteList.execute();
         }
 
-        if(isStoragePermissionGranted()) {
-
-        } else {
+        if(!isStoragePermissionGranted()) {
             Toast.makeText(this, "Storage permission is required.", Toast.LENGTH_SHORT).show();
         }
 
@@ -85,15 +87,13 @@ public class MainActivity extends AppCompatActivity
             FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
             fragmentTransaction.replace(R.id.fragment_container, fragment, null).commit();
         } else {
-            Toast.makeText(this, "Features will not funcation without access to location hardware.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Features will not function without access to location hardware.", Toast.LENGTH_LONG).show();
         }
 
         _favoritesBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
                 accessList();
-                // Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show();
             }
         });
     }
@@ -116,21 +116,21 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+        int id = item.getItemId();
+        intent = new Intent("updateMapFragment");
+        intent.putExtra("instruction", "selectedOptions");
+
+        switch (id) {
+            case R.id.nav_tracking:
+                intent.putExtra("settings", "trackingModeStatus");
+                return true;
         }
 
         return super.onOptionsItemSelected(item);
@@ -166,9 +166,6 @@ public class MainActivity extends AppCompatActivity
             case R.id.nav_driving:
                 intent.putExtra("satOption", "drivingModeSelected");
                 break;
-            case R.id.nav_tracking:
-                intent.putExtra("settings", "trackingModeStatus");
-                break;
         }
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
@@ -176,7 +173,6 @@ public class MainActivity extends AppCompatActivity
         sendBroadcast(intent);
         return true;
     }
-
 
     private void accessList(){
 
@@ -210,7 +206,8 @@ public class MainActivity extends AppCompatActivity
                             _recyclerView.setItemAnimator(new DefaultItemAnimator());
                             bottomSheet.setVisibility(View.VISIBLE);
 
-                            initAdapter();
+                            PopulateFavoriteList populateFavoriteList = new PopulateFavoriteList(getApplicationContext());
+                            populateFavoriteList.execute();
                         }
                         break;
                 }
@@ -225,17 +222,6 @@ public class MainActivity extends AppCompatActivity
         _bottomSheet.setVisibility(View.INVISIBLE);
     }
 
-
-    private void initAdapter(){
-
-        FileManager fileManager = new FileManager(this);
-        List<FavoritesModel> favoritesList = fileManager.getFavoritesList();
-
-        if((favoritesList != null) && (favoritesList.size() > 0)) {
-            FavoritesAdapter favoritesAdapter = new FavoritesAdapter(this, favoritesList);
-            _recyclerView.setAdapter(favoritesAdapter);
-        }
-    }
     public boolean checkLocationPermission() {
 
         if(Build.VERSION.SDK_INT >= 23) {
@@ -271,6 +257,50 @@ public class MainActivity extends AppCompatActivity
         else { //Automatically granted on sdk<23 upon installation
             Log.v(TAG,"Permission has been granted");
             return true;
+        }
+    }
+
+    private class PopulateFavoriteList extends AsyncTask<Void, Void, Void> {
+
+        private Context context;
+        private FavoritesCache favoritesCache;
+        private FavoritesAdapter favoritesAdapter;
+        private List<FavoritesCacheModel> favoritesCacheModels;
+
+        public PopulateFavoriteList(Context context) {
+            this.context = context;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            favoritesCache = new FavoritesCache(context);
+        }
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+
+            favoritesCacheModels = favoritesCache.getFavorites();
+
+            if((favoritesCacheModels != null) && (favoritesCacheModels.size() > 0)) {
+                favoritesAdapter = new FavoritesAdapter(context, favoritesCacheModels);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            super.onProgressUpdate(values);
+            favoritesAdapter.notifyDataSetChanged();
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+
+            _recyclerView.setAdapter(favoritesAdapter);
+            super.onPostExecute(aVoid);
         }
     }
 }

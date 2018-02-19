@@ -10,6 +10,8 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.example.jamessmith.trackerappexample1.R;
+import com.example.jamessmith.trackerappexample1.favorites.storage.FavoritesCache;
+import com.example.jamessmith.trackerappexample1.favorites.storage.FavoritesCacheModel;
 
 import java.util.List;
 
@@ -23,9 +25,9 @@ import butterknife.ButterKnife;
 public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.CustomViewHolder> {
 
     private Context context;
-    private List<FavoritesModel> favoritesModel;
+    private List<FavoritesCacheModel> favoritesModel;
 
-    public FavoritesAdapter(Context context, List<FavoritesModel> favoritesModel) {
+    public FavoritesAdapter(Context context, List<FavoritesCacheModel> favoritesModel) {
         this.context = context;
         this.favoritesModel = favoritesModel;
     }

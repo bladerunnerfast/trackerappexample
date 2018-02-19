@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item android:title="Map Style">
         <menu>
@@ -38,15 +37,6 @@
                 android:id="@+id/nav_driving"
                 android:icon="@drawable/ic_directions_car_black_24dp"
                 android:title="Driving" />
-        </menu>
-    </item>
-
-    <item android:title="Settings">
-        <menu>
-            <item
-                android:id="@+id/nav_tracking"
-                app:actionLayout="@layout/tracker_switch_layout"
-                android:title="Tracking" />
         </menu>
     </item>
 </menu>

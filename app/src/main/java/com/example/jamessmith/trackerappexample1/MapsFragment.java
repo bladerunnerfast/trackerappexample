@@ -23,9 +23,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
-import com.example.jamessmith.trackerappexample1.favorites.FavoritesAdapter;
-import com.example.jamessmith.trackerappexample1.favorites.FavoritesModel;
-import com.example.jamessmith.trackerappexample1.filemanagement.FileManager;
 import com.example.jamessmith.trackerappexample1.service.TrackerService;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -45,8 +42,6 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 
-import java.util.List;
-
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
@@ -65,6 +60,7 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
     private GoogleMap googleMap;
     private BroadcastReceiver broadcastReceiver;
     private Intent serviceIntent;
+    private boolean isBinding = false;
 
     @Nullable
     @Override
@@ -83,19 +79,33 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
 
         LocationManager manager = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
 
+
         if (!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
             buildAlertMessageNoGps();
         }
-
-        serviceIntent = new Intent(getContext(), TrackerService.class);
-        getContext().bindService(serviceIntent, serviceConnection, getContext().BIND_AUTO_CREATE);
-        getContext().startService(serviceIntent);
 
         return view;
     }
 
     @Override
-    public void onLocationChanged(Location location) {}
+    public void onStart() {
+        super.onStart();
+
+        setBindConnection();
+    }
+
+    private void setBindConnection() {
+
+        if(!isBinding) {
+            serviceIntent = new Intent(getContext(), TrackerService.class);
+            getContext().bindService(serviceIntent, serviceConnection, getContext().BIND_AUTO_CREATE);
+            getContext().startService(serviceIntent);
+        }
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+    }
 
     private void buildAlertMessageNoGps() {
 
@@ -130,9 +140,7 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
                         }
                     }
 
-                } else {
-
-                    Toast.makeText(getContext(), "permission denied", Toast.LENGTH_LONG).show();
+                } else {Toast.makeText(getContext(), "permission denied", Toast.LENGTH_LONG).show();
                 }
             }
         }
@@ -155,19 +163,23 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
         mLocationRequest.setInterval(1000);
         mLocationRequest.setFastestInterval(1000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+
         if (ContextCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
         }
+
     }
 
     @Override
     public void onConnectionSuspended(int i) {
-
+        Log.v(TAG, "Connection has been suspended.");
     }
 
     @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {}
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Log.v(TAG, connectionResult.getErrorMessage());
+    }
 
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
@@ -175,6 +187,7 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
         public void onServiceConnected(ComponentName componentName, IBinder service) {
             TrackerService.LocalBinder binder = (TrackerService.LocalBinder) service;
             trackerService = binder.getService();
+            isBinding = true;
             Log.v(TAG, "Connected to Service");
 
             initBroadcastReceiver();
@@ -184,6 +197,7 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
             trackerService = null;
+            isBinding = false;
             Log.v(TAG, "Disconnected from Service");
         }
     };
@@ -208,7 +222,7 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
                                     .addOnSuccessListener(new OnSuccessListener<Location>() {
                                         @Override
                                         public void onSuccess(Location currentLocation) {
-                                            // GPS location can be null if GPS is switched off
+
                                             if (currentLocation != null) {
                                                 trackerService.setRoute(currentLocation.getLatitude(), currentLocation.getLongitude(), latLng.latitude, latLng.longitude);
                                             }
@@ -242,10 +256,10 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
 
                 if(intent != null) {
                     if("loadRoutes".equals(intent.getStringExtra("instruction"))) {
-                        if("successful".equals(intent.getStringExtra("status"))) {
-                            if(googleMap != null) {
-                                if(trackerService.getPolylines() != null) {
-                                    googleMap.addPolyline(trackerService.getPolylines());
+                        if ("successful".equals(intent.getStringExtra("status"))) {
+                            if (googleMap != null) {
+                                if (trackerService.getPolyLines() != null) {
+                                    googleMap.addPolyline(trackerService.getPolyLines());
                                     markerOptions.draggable(true);
                                     markerOptions = trackerService.getMarkerOptions();
                                     googleMap.addMarker(markerOptions);
@@ -255,32 +269,22 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
                                 }
                             }
                         }
+                    }
 
-                        else if("updateCurrentLocation".equals(intent.getStringExtra("instruction"))) {
+                    else if("setPolyLines".equals(intent.getStringExtra("instruction"))) {
 
-                            if (currentLocationMarker != null) {
-                                        currentLocationMarker.remove();
-                            }
-
-                            double lastLat = intent.getDoubleExtra("lastLat", 0);
-                            double latLon = intent.getDoubleExtra("lastLon", 0);
-
-                            Toast.makeText(getContext(), "lat: " + lastLat, Toast.LENGTH_SHORT).show();
-                            //Place current location markers.
-                            LatLng latLng = new LatLng(lastLat, latLon);
-                            markerOptions.position(latLng);
-                            markerOptions.title("Your here");
-                            markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
-                            currentLocationMarker = googleMap.addMarker(markerOptions);
-                            googleMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                            googleMap.animateCamera(CameraUpdateFactory.zoomTo(4));
+                        if(trackerService.getUsersPosition() != null) {
+                            googleMap.addPolyline(trackerService.getUsersPosition());
                         }
                     }
 
                     else if("updateFromList".equals(intent.getStringExtra("instruction"))) {
                         String origin = intent.getStringExtra("origin");
                         String destination = intent.getStringExtra("destination");
-                        trackerService.setRoute(origin, destination);
+                        String oReplacement = origin.replace("Origin:", "");
+                        String dReplacement = destination.replace("Destination:", "");
+                        Toast.makeText(getContext(), "Origin: " + oReplacement, Toast.LENGTH_SHORT);
+                        trackerService.setRoute(oReplacement, dReplacement);
                     }
 
                     else if("selectedOptions".equals(intent.getStringExtra("instruction"))) {
@@ -316,6 +320,13 @@ public class MapsFragment extends Fragment implements GoogleApiClient.Connection
                 googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
                 break;
         }
+    }
+
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        setBindConnection();
     }
 
     @Override
