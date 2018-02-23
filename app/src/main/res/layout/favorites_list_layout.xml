@@ -1,67 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_width="@dimens/ll_favorites_list_width"
+    android:layout_height="@dimens/ll_favorites_list_height">
 
     <android.support.v7.widget.CardView
         android:id="@+id/cv_favorites_list"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="5dp"
-        android:layout_marginStart="5dp">
+        android:layout_width="@dimens/cv_favorites_list_width"
+        android:layout_height="@dimens/cv_favorites_list_height"
+        android:layout_marginEnd="@dimens/cv_favorites_list_margin_end"
+        android:layout_marginStart="@dimens/cv_favorites_list_start"
+        android:layout_marginTop="@dimens/cv_favorites_list_top">
 
         <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_width="@dimens/rl_favorites_list_width"
+            android:layout_height="@dimens/rl_favorites_list_height">
 
             <TextView
                 android:id="@+id/tv_origin"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="@dimens/tv_favorites_origin_width"
+                android:layout_height="@dimens/tv_favorites_origin_height"
                 android:layout_toLeftOf="@+id/btn_go"
                 android:layout_alignParentStart="true"
                 android:text="Origin"
-                android:textSize="18sp"
+                android:textSize="@dimens/tv_favorites_origin_text_size"
                 android:textStyle="bold|italic"/>
 
             <TextView
                 android:id="@+id/tv_destination"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="@dimens/tv_favorites_destination_width"
+                android:layout_height="@dimens/tv_favorites_destination_height"
                 android:layout_alignParentStart="true"
                 android:layout_below="@+id/tv_origin"
                 android:text="Destination"
                 android:textAlignment="textStart"
-                android:textSize="18sp"
+                android:textSize="@dimens/tv_favorites_destination_text_size"
                 android:textStyle="bold|italic" />
 
             <TextView
                 android:id="@+id/tv_distance"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="@dimens/tv_favorites_distance_width"
+                android:layout_height="@dimens/tv_favorites_distance_height"
                 android:layout_alignParentStart="true"
                 android:layout_below="@+id/tv_destination"
                 android:text="Distance"
                 android:textAlignment="textStart"
-                android:textSize="18sp"
+                android:textSize="@dimens/tv_favorites_distance_text_size"
                 android:textStyle="bold|italic" />
 
             <TextView
                 android:id="@+id/tv_duration"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="@dimens/tv_favorites_duration_width"
+                android:layout_height="@dimens/tv_favorites_duration_height"
                 android:layout_below="@+id/tv_destination"
-                android:layout_marginStart="70dp"
+                android:layout_marginStart="@dimens/tv_favorites_duration_margin_start"
                 android:layout_toEndOf="@+id/tv_destination"
                 android:text="Duration"
-                android:textSize="18sp"
+                android:textSize="@dimens/tv_favorites_duration_text_size"
                 android:textStyle="bold|italic" />
 
             <Button
                 android:id="@+id/btn_go"
-                android:layout_width="50dp"
-                android:layout_height="50dp"
+                android:layout_width="@dimens/btn_favorites_go_width"
+                android:layout_height="@dimens/btn_favorites_go_height"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
                 android:background="@drawable/ic_navigation_black_24dp" />

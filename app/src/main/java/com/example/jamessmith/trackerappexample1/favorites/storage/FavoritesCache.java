@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by James Smith on 18/02/2018. 00800 7465 7465 UK affix line Amazon
+ * Created by James Smith on 18/02/2018.
  */
 
 public class FavoritesCache extends SQLiteOpenHelper{

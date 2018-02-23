@@ -142,9 +142,11 @@ public class TrackerService extends Service {
             @Override
             public void onSuccess(Location location) {
                 if (location != null) {
-                    usersPolyLine.add(new LatLng(location.getLatitude(), location.getLongitude()));
-                    intent.putExtra("instruction", "setPolyLines");
-                    sendBroadcast(intent);
+                    if(location.getAccuracy() >= 4f) {
+                        usersPolyLine.add(new LatLng(location.getLatitude(), location.getLongitude()));
+                        intent.putExtra("instruction", "setPolyLines");
+                        sendBroadcast(intent);
+                    }
                 }
             }
         }).addOnFailureListener(new OnFailureListener() {
